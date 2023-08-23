@@ -1,10 +1,11 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+import os
+from urllib.parse import quote
 from pathlib import Path
 import shutil
-import os
-from urllib.parse import quote_plus
-import urllib.parse
+
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
+from fastapi.responses import FileResponse, Response
+
 
 app = FastAPI()
 
@@ -25,18 +26,17 @@ def download_file(file_id: str, request: Request):
     file_path = os.path.join(UPLOAD_DIRECTORY, file_id)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
-    method = request.method
 
-    if method == 'GET':
-        return FileResponse(file_path, media_type="application/octet-stream",
-                            filename=file_id)
+    content_disposition = f'attachment; filename="{quote(file_id)}"'
 
-    if method == 'HEAD':
-        content_disposition = f'attachment; filename="{urllib.parse.quote(file_id)}"'
-
-        headers = {
+    headers = {
             "Content-Length": str(os.path.getsize(file_path)),
             "Content-Disposition": content_disposition,
-        }
+    }
 
-        return JSONResponse(content={}, headers=headers)
+    if request.method == 'HEAD':
+        return Response(headers=headers)
+
+    else:
+        return FileResponse(file_path, media_type="application/octet-stream",
+                            filename=file_id, headers=headers)
